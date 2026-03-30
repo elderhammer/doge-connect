@@ -3,6 +3,8 @@
 #include <thread>
 #include <stop_token>
 #include <iostream>
+#include <cerrno>
+#include <cstring>
 
 #include "log.h"
 #include <vector>
@@ -130,6 +132,22 @@ static void buildPollList(std::vector<QubicConnection>& connections, std::vector
     }
 }
 
+// Return a detailed reason for recv/read failures to make disconnect logs actionable.
+static std::string makeRecvFailureReason(int recvBytes)
+{
+    if (recvBytes == 0)
+        return "recv returned 0 (peer closed connection)";
+
+#ifdef _MSC_VER
+    const int sockErr = GET_SOCKET_ERR;
+    return "recv returned -1 (WSA error " + std::to_string(sockErr) + ")";
+#else
+    const int sockErr = GET_SOCKET_ERR;
+    const char* errText = std::strerror(sockErr);
+    return "recv returned -1 (errno " + std::to_string(sockErr) + ": " + (errText ? errText : "unknown") + ")";
+#endif
+}
+
 // Per-connection reconnect state for non-blocking exponential backoff.
 struct ReconnectState
 {
@@ -157,7 +175,7 @@ struct ReconnectState
 };
 
 // Mark a connection as disconnected and schedule a reconnect attempt.
-static void markDisconnected(QubicConnection& conn, std::vector<char>& recvBuf, ReconnectState& rs, const char* reason)
+static void markDisconnected(QubicConnection& conn, std::vector<char>& recvBuf, ReconnectState& rs, const std::string& reason)
 {
     ERR() << "qubicReceiveLoop: Connection to " << conn.getPeerIp() << " lost (" << reason << ")." << std::endl;
     conn.closeConnection();
@@ -257,8 +275,9 @@ void qubicReceiveLoop(std::stop_token st, ConcurrentQueue<DispatcherMiningSoluti
                     }
                     else
                     {
+                        std::string reason = makeRecvFailureReason(recvBytes);
                         markDisconnected(connections[connIdx], recvBuffers[connIdx], reconnectStates[connIdx],
-                            (std::string("recv returned ") + std::to_string(recvBytes)).c_str());
+                            reason);
                         needRebuild = true;
                     }
                 }
