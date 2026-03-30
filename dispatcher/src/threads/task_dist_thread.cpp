@@ -5,6 +5,7 @@
 
 #include <sstream>
 #include <iomanip>
+#include <algorithm>
 
 #include "log.h"
 #include <chrono>
@@ -49,6 +50,71 @@ std::string formatByteArrayDecimal(const std::vector<uint8_t>& bytes)
     }
     ss << "]";
     return ss.str();
+}
+
+template <std::size_t N>
+std::string formatByteArray(const std::array<uint8_t, N>& bytes)
+{
+    std::ostringstream ss;
+    ss << "[" << std::hex << std::setfill('0');
+    for (std::size_t i = 0; i < bytes.size(); ++i)
+    {
+        if (i > 0)
+            ss << " ";
+        ss << "0x" << std::setw(2) << static_cast<unsigned int>(bytes[i]);
+    }
+    ss << "]";
+    return ss.str();
+}
+
+template <std::size_t N>
+std::string formatByteArrayDecimal(const std::array<uint8_t, N>& bytes)
+{
+    std::ostringstream ss;
+    ss << "[";
+    for (std::size_t i = 0; i < bytes.size(); ++i)
+    {
+        if (i > 0)
+            ss << " ";
+        ss << static_cast<unsigned int>(bytes[i]);
+    }
+    ss << "]";
+    return ss.str();
+}
+
+std::string littleEndianUint256ToDecimalString(const std::array<uint8_t, 32>& valueLe)
+{
+    std::vector<uint8_t> valueBe(valueLe.rbegin(), valueLe.rend());
+    while (!valueBe.empty() && valueBe.front() == 0)
+    {
+        valueBe.erase(valueBe.begin());
+    }
+    if (valueBe.empty())
+        return "0";
+
+    std::string digits;
+    while (!valueBe.empty())
+    {
+        std::vector<uint8_t> quotient;
+        quotient.reserve(valueBe.size());
+
+        uint32_t remainder = 0;
+        for (uint8_t b : valueBe)
+        {
+            const uint32_t current = (remainder << 8) | b;
+            const uint8_t q = static_cast<uint8_t>(current / 10);
+            remainder = current % 10;
+
+            if (!quotient.empty() || q != 0)
+                quotient.push_back(q);
+        }
+
+        digits.push_back(static_cast<char>('0' + remainder));
+        valueBe = std::move(quotient);
+    }
+
+    std::reverse(digits.begin(), digits.end());
+    return digits;
 }
 }
 
@@ -186,7 +252,17 @@ void distributeTask(
     offset += sizeof(CustomQubicMiningTask);
     QubicDogeMiningTask* dogeTask = reinterpret_cast<QubicDogeMiningTask*>(buffer.data() + offset);
     dogeTask->cleanJobQueue = cleanJobQueue;
-    dogeTask->dispatcherDifficulty = currentPoolDifficulty.getCompactRep();
+    const std::array<uint8_t, 4> dispatcherDifficulty = currentPoolDifficulty.getCompactRep();
+    dogeTask->dispatcherDifficulty = dispatcherDifficulty;
+    const std::array<uint8_t, 32> dispatcherTarget = calculateFullRepFromCompactRep(dispatcherDifficulty);
+
+    LOG() << "Dispatcher difficulty compact"
+        << " | hex: " << formatByteArray(dispatcherDifficulty)
+        << " | dec: " << formatByteArrayDecimal(dispatcherDifficulty)
+        << std::endl;
+    LOG() << "Dispatcher target restored"
+        << " | target(dec): " << littleEndianUint256ToDecimalString(dispatcherTarget)
+        << std::endl;
 
     memcpy(dogeTask->version.data(), version.data(), 4);
     memcpy(dogeTask->nTime.data(), ntime.data(), 4);
