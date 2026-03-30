@@ -171,6 +171,12 @@ void shareValidationLoop(
         uint32_t extraNonce2High = (sol.extraNonce2[0] << 24) | (sol.extraNonce2[1] << 16) | (sol.extraNonce2[2] << 8) | sol.extraNonce2[3];
         uint32_t computorIdx = extraNonce2High % 676;
 
+	LOG() << "shareValidationLoop: solDiff=" << solDiff
+            << ", minerId=" << minerId
+            << ", extraNonce2High=" << extraNonce2High
+            << ", computorIdx=" << computorIdx
+            << std::endl;
+
         if (!verifyHashVsTarget(scryptHash, task.targetPool))
         {
             LOG() << "shareValidationLoop: Solution from " << minerId << " comp " << computorIdx << " job " << sol.jobId

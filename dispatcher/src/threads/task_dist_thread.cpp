@@ -3,6 +3,9 @@
 #include <stop_token>
 #include <iostream>
 
+#include <sstream>
+#include <iomanip>
+
 #include "log.h"
 #include <chrono>
 #include <cstdint>
@@ -17,6 +20,37 @@
 #include "hash_util/hash_util.h"
 #include "hash_util/difficulty.h"
 #include "structs.h"
+
+namespace
+{
+std::string formatByteArray(const std::vector<uint8_t>& bytes)
+{
+    std::ostringstream ss;
+    ss << "[" << std::hex << std::setfill('0');
+    for (std::size_t i = 0; i < bytes.size(); ++i)
+    {
+        if (i > 0)
+            ss << " ";
+        ss << "0x" << std::setw(2) << static_cast<unsigned int>(bytes[i]);
+    }
+    ss << "]";
+    return ss.str();
+}
+
+std::string formatByteArrayDecimal(const std::vector<uint8_t>& bytes)
+{
+    std::ostringstream ss;
+    ss << "[";
+    for (std::size_t i = 0; i < bytes.size(); ++i)
+    {
+        if (i > 0)
+            ss << " ";
+        ss << static_cast<unsigned int>(bytes[i]);
+    }
+    ss << "]";
+    return ss.str();
+}
+}
 
 
 void distributeTask(
@@ -52,10 +86,20 @@ void distributeTask(
     DispatcherMiningTask dispatcherTask;
     dispatcherTask.taskId = params[0];
 
-    std::vector<uint8_t> version = hexToBytes(params[5], ByteArrayFormat::LittleEndian);
-    std::vector<uint8_t> ntime = hexToBytes(params[7], ByteArrayFormat::LittleEndian);
-    std::vector<uint8_t> nbits = hexToBytes(params[6], ByteArrayFormat::LittleEndian);
+    const std::string versionHex = params[5];
+    const std::string prevHashHex = params[1];
+    const std::string ntimeHex = params[7];
+    const std::string nbitsHex = params[6];
 
+    LOG() << "Task params (hex)"
+        << " | taskId: " << dispatcherTask.taskId
+        << " | version: " << versionHex
+        << " | prevHash: " << prevHashHex
+        << " | nTime: " << ntimeHex
+        << " | nBits: " << nbitsHex
+        << std::endl;
+
+    std::vector<uint8_t> version = hexToBytes(versionHex, ByteArrayFormat::LittleEndian);
     // Stratum prevHash is in word-swapped format: each 4-byte word has its bytes reversed
     // relative to the block header. Parse as-is, then swap bytes within each 4-byte word
     // to get the correct block header byte order.
@@ -65,6 +109,22 @@ void distributeTask(
         std::swap(prevHash[i], prevHash[i + 3]);
         std::swap(prevHash[i + 1], prevHash[i + 2]);
     }
+    std::vector<uint8_t> ntime = hexToBytes(ntimeHex, ByteArrayFormat::LittleEndian);
+    std::vector<uint8_t> nbits = hexToBytes(nbitsHex, ByteArrayFormat::LittleEndian);
+
+    LOG() << "DispatcherMiningTask converted bytes (little-endian)"
+        << " | version: " << formatByteArray(version)
+        << " | prevHash: " << formatByteArray(prevHash)
+        << " | nTime: " << formatByteArray(ntime)
+        << " | nBits: " << formatByteArray(nbits)
+        << std::endl;
+
+    LOG() << "DispatcherMiningTask converted bytes (little-endian, decimal)"
+        << " | version: " << formatByteArrayDecimal(version)
+        << " | prevHash: " << formatByteArrayDecimal(prevHash)
+        << " | nTime: " << formatByteArrayDecimal(ntime)
+        << " | nBits: " << formatByteArrayDecimal(nbits)
+        << std::endl;
 
     if (version.size() != 4 || prevHash.size() != 32 || ntime.size() != 4 || nbits.size() != 4)
     {
