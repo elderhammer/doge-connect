@@ -1,3 +1,5 @@
+find_package(Threads REQUIRED)
+
 # test dispatcher executable
 add_executable(testdispatcher
 	testdispatcher/test_dispatcher.cpp
@@ -5,7 +7,7 @@ add_executable(testdispatcher
 	testdispatcher/dummy_stratum_recv_thread.cpp
 )
 
-target_link_libraries(testdispatcher PRIVATE nlohmann_json::nlohmann_json hashutil dispatcherlib)
+target_link_libraries(testdispatcher PRIVATE nlohmann_json::nlohmann_json hashutil dispatcherlib Threads::Threads)
 
 # test miner executable
 add_executable(testminer
@@ -17,7 +19,7 @@ add_executable(testminer
 	testminer/mining_structs.h
 )
 
-target_link_libraries(testminer PRIVATE hashutil dispatcherlib qubiccrypto)
+target_link_libraries(testminer PRIVATE hashutil dispatcherlib qubiccrypto Threads::Threads)
 
 # test signing executable
 add_executable(testsigning

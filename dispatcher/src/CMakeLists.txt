@@ -1,3 +1,5 @@
+find_package(Threads REQUIRED)
+
 # hash util library
 add_library(hashutil
 	hash_util/hash_util.h
@@ -67,4 +69,4 @@ target_link_libraries(dispatcherlib PUBLIC nlohmann_json::nlohmann_json PRIVATE 
 # main executable
 add_executable(qubicdogedispatcher dispatcher.cpp)
 
-target_link_libraries(qubicdogedispatcher PRIVATE nlohmann_json::nlohmann_json hashutil dispatcherlib)
+target_link_libraries(qubicdogedispatcher PRIVATE nlohmann_json::nlohmann_json hashutil dispatcherlib Threads::Threads)
