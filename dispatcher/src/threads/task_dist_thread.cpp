@@ -391,6 +391,11 @@ void taskDistributionLoop(
                 poolBaseDiffDivisor = msg["params"][0];
                 currentPoolDifficulty = DifficultyTarget(divideTarget(basePoolDifficulty.getFullRep(), poolBaseDiffDivisor));
                 stats.poolDifficulty.store(poolBaseDiffDivisor);
+                LOG() << "Received mining.set_difficulty from pool"
+                    << " | diff: " << poolBaseDiffDivisor
+                    << " | dispatcher target compact(hex): " << formatByteArray(currentPoolDifficulty.getCompactRep())
+                    << " | dispatcher target compact(dec): " << formatByteArrayDecimal(currentPoolDifficulty.getCompactRep())
+                    << std::endl;
             }
             else if (msg["method"] == "mining.notify")
             {
@@ -412,6 +417,11 @@ void taskDistributionLoop(
                             poolBaseDiffDivisor = nextMsg["params"][0];
                             currentPoolDifficulty = DifficultyTarget(divideTarget(basePoolDifficulty.getFullRep(), poolBaseDiffDivisor));
                             stats.poolDifficulty.store(poolBaseDiffDivisor);
+                            LOG() << "Received mining.set_difficulty from pool (drain)"
+                                << " | diff: " << poolBaseDiffDivisor
+                                << " | dispatcher target compact(hex): " << formatByteArray(currentPoolDifficulty.getCompactRep())
+                                << " | dispatcher target compact(dec): " << formatByteArrayDecimal(currentPoolDifficulty.getCompactRep())
+                                << std::endl;
                         }
                         else if (nextMsg["method"] == "mining.notify")
                         {
