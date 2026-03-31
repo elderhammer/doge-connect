@@ -176,6 +176,8 @@ void shareValidationLoop(
             continue;
         }
 
+        LOG() << "shareValidationLoop: fullHeader= " << formatByteArrayDecimal(fullHeader);
+
         // Debug: log header immediately before scrypt to confirm input bytes.
         LOG() << "shareValidationLoop: scrypt input=" << bytesToHex(std::span<const uint8_t>(fullHeader.data(), 80), ByteArrayFormat::BigEndian) << std::endl;
         scrypt_1024_1_1_256(reinterpret_cast<char*>(fullHeader.data()), reinterpret_cast<char*>(scryptHash.data()));
