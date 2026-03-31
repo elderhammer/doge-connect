@@ -180,6 +180,8 @@ void shareValidationLoop(
         if (!verifyHashVsTarget(scryptHash, task.targetPool))
         {
             LOG() << "shareValidationLoop: Solution from " << minerId << " comp " << computorIdx << " job " << sol.jobId
+                << " nonce " << bytesToHex(sol.nonce, ByteArrayFormat::LittleEndian)
+                << " extraNonce2 " << bytesToHex(sol.extraNonce2, ByteArrayFormat::LittleEndian)
                 << " FAILED pool diff (hash diff " << solDiff << ", required " << stats.poolDifficulty.load() << ")."
                 << " hash=" << bytesToHex(scryptHash, ByteArrayFormat::LittleEndian)
                 << " header=" << bytesToHex(std::span<const uint8_t>(fullHeader.data(), 80), ByteArrayFormat::BigEndian)
