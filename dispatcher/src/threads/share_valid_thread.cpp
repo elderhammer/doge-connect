@@ -205,14 +205,17 @@ void shareValidationLoop(
             << std::endl;
         offset += sol.nonce.size();
 
+        LOG() << "shareValidationLoop: fullHeader"
+            << " | dec= " << formatByteArrayDecimal(fullHeader)
+            << " | hex= " << formatByteArrayHex(fullHeader)
+            << std::endl;
+
         if (offset != 80)
         {
             ERR() << "shareValidationLoop: Something is wrong with the header size (should be 80 bytes)." << std::endl;
             stats.solutionsRejected++;
             continue;
         }
-
-        LOG() << "shareValidationLoop: fullHeader= " << formatByteArrayDecimal(fullHeader);
 
         // Debug: log header immediately before scrypt to confirm input bytes.
         LOG() << "shareValidationLoop: scrypt input=" << bytesToHex(std::span<const uint8_t>(fullHeader.data(), 80), ByteArrayFormat::BigEndian) << std::endl;
