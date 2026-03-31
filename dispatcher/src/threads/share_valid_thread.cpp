@@ -4,6 +4,7 @@
 #include <iostream>
 #include <unordered_set>
 #include <sstream>
+#include <iomanip>
 
 #include "log.h"
 #include <optional>
@@ -31,6 +32,21 @@ static std::string formatByteArrayDecimal(const std::array<uint8_t, N>& bytes)
         if (i > 0)
             ss << " ";
         ss << static_cast<unsigned int>(bytes[i]);
+    }
+    ss << "]";
+    return ss.str();
+}
+
+template <std::size_t N>
+static std::string formatByteArrayHex(const std::array<uint8_t, N>& bytes)
+{
+    std::ostringstream ss;
+    ss << "[" << std::hex << std::setfill('0');
+    for (std::size_t i = 0; i < bytes.size(); ++i)
+    {
+        if (i > 0)
+            ss << " ";
+        ss << "0x" << std::setw(2) << static_cast<unsigned int>(bytes[i]);
     }
     ss << "]";
     return ss.str();
@@ -159,14 +175,34 @@ void shareValidationLoop(
 
         // Build complete header from task and solution info.
         memcpy(fullHeader.data(), task.partialHeader.data(), task.partialHeader.size());
+        LOG() << "shareValidationLoop: appended partialHeader"
+            << " | dec=" << formatByteArrayDecimal(task.partialHeader)
+            << " | hex=" << formatByteArrayHex(task.partialHeader)
+            << std::endl;
         unsigned int offset = task.partialHeader.size();
         memcpy(fullHeader.data() + offset, sol.merkleRoot.data(), sol.merkleRoot.size());
+        LOG() << "shareValidationLoop: appended merkleRoot"
+            << " | dec=" << formatByteArrayDecimal(sol.merkleRoot)
+            << " | hex=" << formatByteArrayHex(sol.merkleRoot)
+            << std::endl;
         offset += sol.merkleRoot.size();
         memcpy(fullHeader.data() + offset, sol.nTime.data(), sol.nTime.size());
+        LOG() << "shareValidationLoop: appended nTime"
+            << " | dec=" << formatByteArrayDecimal(sol.nTime)
+            << " | hex=" << formatByteArrayHex(sol.nTime)
+            << std::endl;
         offset += sol.nTime.size();
         memcpy(fullHeader.data() + offset, task.nBits.data(), task.nBits.size());
+        LOG() << "shareValidationLoop: appended nBits"
+            << " | dec=" << formatByteArrayDecimal(task.nBits)
+            << " | hex=" << formatByteArrayHex(task.nBits)
+            << std::endl;
         offset += task.nBits.size();
         memcpy(fullHeader.data() + offset, sol.nonce.data(), sol.nonce.size());
+        LOG() << "shareValidationLoop: appended nonce"
+            << " | dec=" << formatByteArrayDecimal(sol.nonce)
+            << " | hex=" << formatByteArrayHex(sol.nonce)
+            << std::endl;
         offset += sol.nonce.size();
 
         if (offset != 80)
