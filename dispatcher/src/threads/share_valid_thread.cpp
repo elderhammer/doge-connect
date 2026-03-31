@@ -3,6 +3,7 @@
 #include <stop_token>
 #include <iostream>
 #include <unordered_set>
+#include <sstream>
 
 #include "log.h"
 #include <optional>
@@ -19,6 +20,21 @@
 #include "hash_util/hash_util.h"
 #include "hash_util/difficulty.h"
 #include "structs.h"
+
+template <std::size_t N>
+static std::string formatByteArrayDecimal(const std::array<uint8_t, N>& bytes)
+{
+    std::ostringstream ss;
+    ss << "[";
+    for (std::size_t i = 0; i < bytes.size(); ++i)
+    {
+        if (i > 0)
+            ss << " ";
+        ss << static_cast<unsigned int>(bytes[i]);
+    }
+    ss << "]";
+    return ss.str();
+}
 
 // Helper: get short identity string (first 8 chars) from public key.
 static std::string shortIdentity(const std::array<uint8_t, 32>& pubkey)
@@ -173,6 +189,8 @@ void shareValidationLoop(
 
 	    LOG() << "shareValidationLoop: solDiff=" << solDiff
             << ", minerId=" << minerId
+            << ", nonce(dec)=" << formatByteArrayDecimal(sol.nonce)
+            << ", extraNonce2(dec)=" << formatByteArrayDecimal(sol.extraNonce2)
             << ", extraNonce2High=" << extraNonce2High
             << ", computorIdx=" << computorIdx
             << std::endl;
@@ -180,8 +198,8 @@ void shareValidationLoop(
         if (!verifyHashVsTarget(scryptHash, task.targetPool))
         {
             LOG() << "shareValidationLoop: Solution from " << minerId << " comp " << computorIdx << " job " << sol.jobId
-                << " nonce " << bytesToHex(sol.nonce, ByteArrayFormat::LittleEndian)
-                << " extraNonce2 " << bytesToHex(sol.extraNonce2, ByteArrayFormat::LittleEndian)
+                << " nonce " << bytesToHex(sol.nonce, ByteArrayFormat::BigEndian)
+                << " extraNonce2 " << bytesToHex(sol.extraNonce2, ByteArrayFormat::BigEndian)
                 << " extraNonce2High " << extraNonce2High
                 << " FAILED pool diff (hash diff " << solDiff << ", required " << stats.poolDifficulty.load() << ")."
                 << " hash=" << bytesToHex(scryptHash, ByteArrayFormat::LittleEndian)
