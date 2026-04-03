@@ -52,6 +52,48 @@ std::string formatByteArrayDecimal(const std::vector<uint8_t>& bytes)
     return ss.str();
 }
 
+std::string formatStringArray(const std::vector<std::string>& values)
+{
+    std::ostringstream ss;
+    ss << "[";
+    for (std::size_t i = 0; i < values.size(); ++i)
+    {
+        if (i > 0)
+            ss << ", ";
+        ss << values[i];
+    }
+    ss << "]";
+    return ss.str();
+}
+
+std::string formatNestedByteArray(const std::vector<std::vector<uint8_t>>& groups)
+{
+    std::ostringstream ss;
+    ss << "[";
+    for (std::size_t i = 0; i < groups.size(); ++i)
+    {
+        if (i > 0)
+            ss << ", ";
+        ss << formatByteArray(groups[i]);
+    }
+    ss << "]";
+    return ss.str();
+}
+
+std::string formatNestedByteArrayDecimal(const std::vector<std::vector<uint8_t>>& groups)
+{
+    std::ostringstream ss;
+    ss << "[";
+    for (std::size_t i = 0; i < groups.size(); ++i)
+    {
+        if (i > 0)
+            ss << ", ";
+        ss << formatByteArrayDecimal(groups[i]);
+    }
+    ss << "]";
+    return ss.str();
+}
+
 template <std::size_t N>
 std::string formatByteArray(const std::array<uint8_t, N>& bytes)
 {
@@ -144,32 +186,44 @@ void distributeTask(
     // cleanJobQueue: true
     // --------------------
 
+    const std::string taskId = params[0];
+    const std::string prevHashHex = params[1];
+    const std::string coinbase1Hex = params[2];
+    const std::string coinbase2Hex = params[3];
+    std::vector<std::string> merkleBranchesHex;
+    merkleBranchesHex.reserve(params[4].size());
+    for (const nlohmann::json& merkleBranch : params[4])
+    {
+        merkleBranchesHex.push_back(merkleBranch.get<std::string>());
+    }
+    const std::string versionHex = params[5];
+    const std::string nbitsHex = params[6];
+    const std::string ntimeHex = params[7];
     bool cleanJobQueue = params[8].get<bool>() || propagateCleanJobFlag;
     if (cleanJobQueue)
         activeTasks.clear();
 
     // Build DispatcherMiningTask
     DispatcherMiningTask dispatcherTask;
-    dispatcherTask.taskId = params[0];
-
-    const std::string versionHex = params[5];
-    const std::string prevHashHex = params[1];
-    const std::string ntimeHex = params[7];
-    const std::string nbitsHex = params[6];
+    dispatcherTask.taskId = taskId;
 
     LOG() << "Task params (hex)"
         << " | taskId: " << dispatcherTask.taskId
-        << " | version: " << versionHex
         << " | prevHash: " << prevHashHex
-        << " | nTime: " << ntimeHex
+        << " | coinbase1: " << coinbase1Hex
+        << " | coinbase2: " << coinbase2Hex
+        << " | merkleBranches: " << formatStringArray(merkleBranchesHex)
+        << " | version: " << versionHex
         << " | nBits: " << nbitsHex
+        << " | nTime: " << ntimeHex
+        << " | cleanJobQueue: " << (cleanJobQueue ? "true" : "false")
         << std::endl;
 
     std::vector<uint8_t> version = hexToBytes(versionHex, ByteArrayFormat::LittleEndian);
     // Stratum prevHash is in word-swapped format: each 4-byte word has its bytes reversed
     // relative to the block header. Parse as-is, then swap bytes within each 4-byte word
     // to get the correct block header byte order.
-    std::vector<uint8_t> prevHash = hexToBytes(params[1], ByteArrayFormat::BigEndian);
+    std::vector<uint8_t> prevHash = hexToBytes(prevHashHex, ByteArrayFormat::BigEndian);
     for (size_t i = 0; i + 3 < prevHash.size(); i += 4)
     {
         std::swap(prevHash[i], prevHash[i + 3]);
@@ -177,10 +231,21 @@ void distributeTask(
     }
     std::vector<uint8_t> ntime = hexToBytes(ntimeHex, ByteArrayFormat::LittleEndian);
     std::vector<uint8_t> nbits = hexToBytes(nbitsHex, ByteArrayFormat::LittleEndian);
+    std::vector<uint8_t> coinbase1 = hexToBytes(coinbase1Hex, ByteArrayFormat::BigEndian);
+    std::vector<uint8_t> coinbase2 = hexToBytes(coinbase2Hex, ByteArrayFormat::BigEndian);
+    std::vector<std::vector<uint8_t>> merkleBranches;
+    merkleBranches.reserve(merkleBranchesHex.size());
+    for (const std::string& branchHex : merkleBranchesHex)
+    {
+        merkleBranches.push_back(hexToBytes(branchHex, ByteArrayFormat::BigEndian));
+    }
 
     LOG() << "DispatcherMiningTask converted bytes (little-endian)"
         << " | version: " << formatByteArray(version)
         << " | prevHash: " << formatByteArray(prevHash)
+        << " | coinbase1(stratum-order): " << formatByteArray(coinbase1)
+        << " | coinbase2(stratum-order): " << formatByteArray(coinbase2)
+        << " | merkleBranches(stratum-order): " << formatNestedByteArray(merkleBranches)
         << " | nTime: " << formatByteArray(ntime)
         << " | nBits: " << formatByteArray(nbits)
         << std::endl;
@@ -188,6 +253,9 @@ void distributeTask(
     LOG() << "DispatcherMiningTask converted bytes (little-endian, decimal)"
         << " | version: " << formatByteArrayDecimal(version)
         << " | prevHash: " << formatByteArrayDecimal(prevHash)
+        << " | coinbase1(stratum-order): " << formatByteArrayDecimal(coinbase1)
+        << " | coinbase2(stratum-order): " << formatByteArrayDecimal(coinbase2)
+        << " | merkleBranches(stratum-order): " << formatNestedByteArrayDecimal(merkleBranches)
         << " | nTime: " << formatByteArrayDecimal(ntime)
         << " | nBits: " << formatByteArrayDecimal(nbits)
         << std::endl;
@@ -211,13 +279,10 @@ void distributeTask(
     // "high-hash" rejections from borderline shares that pass the lossy compact target.
     dispatcherTask.targetPool = currentPoolDifficulty.getFullRep();
 
-    dispatcherTask.coinbase1 = hexToBytes(params[2], ByteArrayFormat::BigEndian);
-    dispatcherTask.coinbase2 = hexToBytes(params[3], ByteArrayFormat::BigEndian);
+    dispatcherTask.coinbase1 = std::move(coinbase1);
+    dispatcherTask.coinbase2 = std::move(coinbase2);
     dispatcherTask.extraNonce1 = extraNonce1;
-    for (const nlohmann::json& merkleBranch : params[4])
-    {
-        dispatcherTask.merkleBranches.push_back(hexToBytes(merkleBranch, ByteArrayFormat::BigEndian));
-    }
+    dispatcherTask.merkleBranches = std::move(merkleBranches);
 
     // Build QubicDogeMiningTask with its payload
 
@@ -321,9 +386,9 @@ void distributeTask(
     }
     LOG() << "Task " << qubicTask->jobId << " sent (" << numSends << "/" << connections.size() << " conns)"
         << " | pool job: " << dispatcherTask.taskId
-        << " | prevHash: " << std::string(params[1]).substr(0, 16) << "..."
-        << " | nTime: " << std::string(params[7])
-        << " | nBits: " << std::string(params[6])
+        << " | prevHash: " << prevHashHex.substr(0, 16) << "..."
+        << " | nTime: " << ntimeHex
+        << " | nBits: " << nbitsHex
         << " | merkle branches: " << dispatcherTask.merkleBranches.size()
         << " | clean: " << (cleanJobQueue ? "yes" : "no")
         << " | size: " << totalNumBytes << "B"
