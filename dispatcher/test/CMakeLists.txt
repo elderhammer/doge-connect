@@ -32,3 +32,9 @@ add_executable(testdifficulty
 	testdifficulty/test_dispatcher_difficulty.cpp
 )
 target_link_libraries(testdifficulty PRIVATE hashutil)
+
+# test decimal difficulty -> compact converter executable
+add_executable(testdifficulty_from_decimal
+	testdifficulty/test_dispatcher_difficulty_from_decimal.cpp
+)
+target_link_libraries(testdifficulty_from_decimal PRIVATE hashutil)
