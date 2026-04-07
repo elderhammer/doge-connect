@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -35,18 +36,53 @@ std::string normalizeHex(std::string hex)
     return out;
 }
 
+bool looksLikeCompactLE(const std::array<uint8_t, 4>& compactRep)
+{
+    const uint32_t mantissa = static_cast<uint32_t>(compactRep[0])
+        | (static_cast<uint32_t>(compactRep[1]) << 8)
+        | (static_cast<uint32_t>(compactRep[2]) << 16);
+    const uint8_t exponent = compactRep[3];
+
+    // Valid compact targets for 256-bit numbers should have a sensible exponent range.
+    return mantissa != 0 && exponent >= 3 && exponent <= 32;
+}
+
 std::array<uint8_t, 4> parseCompactDifficulty(const std::string& hexInput)
 {
     const std::string hex = normalizeHex(hexInput);
-    std::array<uint8_t, 4> out{};
+    std::array<uint8_t, 4> direct{};
 
-    for (size_t i = 0; i < out.size(); ++i)
+    for (size_t i = 0; i < direct.size(); ++i)
     {
         const std::string byteHex = hex.substr(i * 2, 2);
-        out[i] = static_cast<uint8_t>(std::stoul(byteHex, nullptr, 16));
+        direct[i] = static_cast<uint8_t>(std::stoul(byteHex, nullptr, 16));
     }
 
-    return out;
+    std::array<uint8_t, 4> reversed = direct;
+    std::reverse(reversed.begin(), reversed.end());
+
+    const bool directValid = looksLikeCompactLE(direct);
+    const bool reversedValid = looksLikeCompactLE(reversed);
+
+    if (directValid && !reversedValid)
+        return direct; // input already in little-endian compact (internal dispatcher format)
+    if (!directValid && reversedValid)
+        return reversed; // input likely in nBits-style big-endian text, convert to compact LE
+    if (directValid && reversedValid)
+        return direct; // ambiguous: keep backward-compatible behavior
+
+    throw std::invalid_argument("cannot parse input as a valid compact difficulty (LE or BE)");
+}
+
+std::string bytesToHexBigEndian(const std::array<uint8_t, 4>& bytes)
+{
+    std::ostringstream ss;
+    ss << std::hex << std::setfill('0');
+    for (uint8_t b : bytes)
+    {
+        ss << std::setw(2) << static_cast<unsigned int>(b);
+    }
+    return ss.str();
 }
 
 std::string littleEndianUint256ToDecimalString(const std::array<uint8_t, 32>& valueLe)
@@ -121,7 +157,8 @@ int main(int argc, char* argv[])
         const std::array<uint8_t, 32> fullTarget = calculateFullRepFromCompactRep(compactRep);
         const long double difficulty = compactToDifficulty(compactRep);
 
-        std::cout << "Input compact (hex, LE): " << argv[1] << "\n";
+        std::cout << "Input compact (hex, raw): " << argv[1] << "\n";
+        std::cout << "Parsed compact (hex, LE): " << bytesToHexBigEndian(compactRep) << "\n";
         std::cout << "Target (decimal): " << littleEndianUint256ToDecimalString(fullTarget) << "\n";
         std::cout << std::fixed << std::setprecision(8);
         std::cout << "Difficulty (decimal): " << difficulty << "\n";
