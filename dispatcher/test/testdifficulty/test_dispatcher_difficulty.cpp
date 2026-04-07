@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include "hash_util/difficulty.h"
+#include "difficulty.h"
 
 namespace
 {
