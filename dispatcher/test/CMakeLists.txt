@@ -26,3 +26,9 @@ add_executable(testsigning
 	testsigning/test_signing.cpp
 )
 target_link_libraries(testsigning PRIVATE qubiccrypto)
+
+# test difficulty converter executable
+add_executable(testdifficulty
+	testdifficulty/test_dispatcher_difficulty.cpp
+)
+target_link_libraries(testdifficulty PRIVATE hashutil)
